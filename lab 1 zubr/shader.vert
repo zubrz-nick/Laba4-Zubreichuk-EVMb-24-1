@@ -1,6 +1,10 @@
 #version 410 core
 layout (location = 0) in vec3 vp;
+uniform float offsetX;
+
 void main()
 {
-    gl_Position = vec4(vp, 1.0);
+    vec3 pos = vp;
+    pos.x += offsetX;          
+    gl_Position = vec4(pos, 1.0);
 }

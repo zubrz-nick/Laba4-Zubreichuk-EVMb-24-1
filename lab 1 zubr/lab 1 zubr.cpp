@@ -96,6 +96,10 @@ int main()
 
         shader.setVec4("ourColor", red, green, blue, 1.0f);
 
+
+        float offset = sin(glfwGetTime()) * 0.5f;
+        shader.setFloat("offsetX", offset);
+
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
