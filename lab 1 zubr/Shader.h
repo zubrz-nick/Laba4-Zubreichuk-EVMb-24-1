@@ -1,114 +1,109 @@
-#ifndef SHADER_H
-#define SHADER_H
-
+#pragma once
 #include <string>
 #include <fstream>
 #include <sstream>
 #include <iostream>
-#include "glew-2.1.0/include/GL/glew.h"
-using namespace std;
-class Shader
-{
+#include <GL/glew.h>
+#include "glm/glm.hpp"
+#include "glm/gtc/type_ptr.hpp"
+
+class Shader {
 public:
-    int ID;
+    unsigned int ID;
 
-    Shader(const char* vertexPath, const char* fragmentPath)
-    {
-        string vertexCode;
-        ifstream vShaderFile;
-        vShaderFile.exceptions(ifstream::failbit | ifstream::badbit);
-        try
-        {
+    Shader(const char* vertexPath, const char* fragmentPath) {
+        // 1. Получаем код шейдеров из файлов
+        std::string vertexCode;
+        std::string fragmentCode;
+        std::ifstream vShaderFile;
+        std::ifstream fShaderFile;
+
+        vShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+        fShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+
+        try {
             vShaderFile.open(vertexPath);
-            stringstream vShaderStream;
-            vShaderStream << vShaderFile.rdbuf();
-            vShaderFile.close();
-            vertexCode = vShaderStream.str();
-        }
-        catch (ifstream::failure& e)
-        {
-            cout << "ERROR::SHADER::VERTEX::FILE_NOT_SUCCESFULLY_READ: " << e.what() << endl;
-        }
-        const char* vShaderCode = vertexCode.c_str();
-
-  
-        string fragmentCode;
-        ifstream fShaderFile;
-        fShaderFile.exceptions(ifstream::failbit | ifstream::badbit);
-        try
-        {
             fShaderFile.open(fragmentPath);
-            stringstream fShaderStream;
+            std::stringstream vShaderStream, fShaderStream;
+
+            vShaderStream << vShaderFile.rdbuf();
             fShaderStream << fShaderFile.rdbuf();
+
+            vShaderFile.close();
             fShaderFile.close();
+
+            vertexCode = vShaderStream.str();
             fragmentCode = fShaderStream.str();
         }
-        catch (ifstream::failure& e)
-        {
-            cout << "ERROR::SHADER::FRAGMENT::FILE_NOT_SUCCESFULLY_READ: " << e.what() << endl;
+        catch (std::ifstream::failure& e) {
+            std::cout << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ" << std::endl;
         }
+
+        const char* vShaderCode = vertexCode.c_str();
         const char* fShaderCode = fragmentCode.c_str();
 
+        // 2. Компилируем шейдеры
+        unsigned int vertex, fragment;
+        int success;
+        char infoLog[512];
 
-        int vertex = glCreateShader(GL_VERTEX_SHADER);
+        vertex = glCreateShader(GL_VERTEX_SHADER);
         glShaderSource(vertex, 1, &vShaderCode, NULL);
         glCompileShader(vertex);
-        checkCompileErrors(vertex, "VERTEX");
+        glGetShaderiv(vertex, GL_COMPILE_STATUS, &success);
+        if (!success) {
+            glGetShaderInfoLog(vertex, 512, NULL, infoLog);
+            std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+        }
 
-
-        int fragment = glCreateShader(GL_FRAGMENT_SHADER);
+        fragment = glCreateShader(GL_FRAGMENT_SHADER);
         glShaderSource(fragment, 1, &fShaderCode, NULL);
         glCompileShader(fragment);
-        checkCompileErrors(fragment, "FRAGMENT");
-
+        glGetShaderiv(fragment, GL_COMPILE_STATUS, &success);
+        if (!success) {
+            glGetShaderInfoLog(fragment, 512, NULL, infoLog);
+            std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
+        }
 
         ID = glCreateProgram();
         glAttachShader(ID, vertex);
         glAttachShader(ID, fragment);
         glLinkProgram(ID);
-        checkCompileErrors(ID, "PROGRAM");
+        glGetProgramiv(ID, GL_LINK_STATUS, &success);
+        if (!success) {
+            glGetProgramInfoLog(ID, 512, NULL, infoLog);
+            std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
+        }
 
+        glDeleteShader(vertex);
+        glDeleteShader(fragment);
     }
 
-    void use() const
-    {
+    void use() {
         glUseProgram(ID);
     }
-    void setFloat(const std::string& name, float value) const
-    {
+
+    void setBool(const std::string& name, bool value) const {
+        glUniform1i(glGetUniformLocation(ID, name.c_str()), (int)value);
+    }
+
+    void setInt(const std::string& name, int value) const {
+        glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
+    }
+
+    void setFloat(const std::string& name, float value) const {
         glUniform1f(glGetUniformLocation(ID, name.c_str()), value);
     }
-    void setVec4(const string& name, float r, float g, float b, float a) const
-    {
-        glUniform4f(glGetUniformLocation(ID, name.c_str()), r, g, b, a);
+
+    void setVec4(const std::string& name, float x, float y, float z, float w) const {
+        glUniform4f(glGetUniformLocation(ID, name.c_str()), x, y, z, w);
     }
 
-private:
+    void setVec3(const std::string& name, const glm::vec3& value) const {
+        glUniform3fv(glGetUniformLocation(ID, name.c_str()), 1, glm::value_ptr(value));
+    }
 
-    void checkCompileErrors(unsigned int shader, string type)
-    {
-        GLint success;
-        GLchar infoLog[1024];
-
-        if (type != "PROGRAM")
-        {
-            glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-            if (!success)
-            {
-                glGetShaderInfoLog(shader, 1024, NULL, infoLog);
-                cout << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n"<< infoLog << "\n" << endl;
-            }
-        }
-        else
-        {
-            glGetProgramiv(shader, GL_LINK_STATUS, &success);
-            if (!success)
-            {
-                glGetProgramInfoLog(shader, 1024, NULL, infoLog);
-                cout << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n" << infoLog << "\n"<< endl;
-            }
-        }
+    void setMat4(const std::string& name, const glm::mat4& mat) const {
+        glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, glm::value_ptr(mat));
     }
 };
-
-#endif
