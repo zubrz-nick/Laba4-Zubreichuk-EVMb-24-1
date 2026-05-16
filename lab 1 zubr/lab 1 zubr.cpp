@@ -4,6 +4,7 @@
 #include "glew-2.1.0/include/GL/glew.h"
 #include "glfw-3.4.bin.WIN64/include/GLFW/glfw3.h"
 #include "Shader.h"
+#include "Model.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
@@ -125,6 +126,7 @@ int main() {
     glBindVertexArray(0);
 
     Shader shader("shader.vert", "shader.frag");
+    Model ourModel("Lab_3_VAR_11_Zubreichuk.obj");
 
     while (!glfwWindowShouldClose(Okno)) {
         processInput(Okno);
@@ -150,8 +152,7 @@ int main() {
         float offset = sin(glfwGetTime()) * 0.5f;
         shader.setFloat("offsetX", offset);
 
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        ourModel.Draw();
 
         glfwSwapBuffers(Okno);
         glfwPollEvents();
