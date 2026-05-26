@@ -9,7 +9,7 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
 
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 5.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -22,6 +22,8 @@ bool firstMouse = true;
 float cameraSpeed = 0.05f;
 float mouseSensitivity = 0.1f;
 
+glm::vec3 lightPos = glm::vec3(2.0f, 2.0f, 2.0f);
+
 void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         cameraPos += cameraSpeed * cameraFront;
@@ -31,6 +33,8 @@ void processInput(GLFWwindow* window) {
         cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
 }
 
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
@@ -64,24 +68,8 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
     cameraFront = glm::normalize(direction);
 }
 
-float vertex[] = {
-    0.5f, -0.25f, 0.0f,
-    -0.5f, -0.25f, 0.0f,
-    -0.3f, 0.25f, 0.0f,
-    0.3f, 0.25f, 0.0f
-};
-
-GLuint indices[] = {
-    0, 1, 2,
-    0, 2, 3
-};
-
 int main() {
     glfwInit();
-    if (!glfwInit()) {
-        fprintf(stderr, "ERROR GLFW Init: \n");
-        return -1;
-    }
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -89,7 +77,7 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     GLFWwindow* Okno;
-    Okno = glfwCreateWindow(512, 512, "Okno", NULL, NULL);
+    Okno = glfwCreateWindow(800, 600, "Lab 6", NULL, NULL);
 
     if (!Okno) {
         glfwTerminate();
@@ -106,61 +94,49 @@ int main() {
     glfwSetInputMode(Okno, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(Okno, mouse_callback);
 
-    GLuint VAO, VBO, EBO;
-
-    glCreateBuffers(1, &VBO);
-    glCreateVertexArrays(1, &VAO);
-    glGenBuffers(1, &EBO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBindVertexArray(VAO);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex), vertex, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
-    glEnableVertexAttribArray(0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    glEnable(GL_DEPTH_TEST);
 
     Shader shader("shader.vert", "shader.frag");
     Model ourModel("Lab_3_VAR_11_Zubreichuk.obj");
+    glm::vec3 lightPos(2.0f, 3.0f, 4.0f);
+
 
     while (!glfwWindowShouldClose(Okno)) {
         processInput(Okno);
 
-        glClearColor(1.0f, 0.4f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        glm::mat4 projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
-        glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
-        glm::mat4 model = glm::mat4(1.0f);
+        glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         shader.use();
-        shader.setMat4("projection", projection);
-        shader.setMat4("view", view);
+
+        glm::mat4 model = glm::mat4(1.0f);
+        glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+        glm::mat4 projection = glm::perspective(glm::radians(45.0f), 1024.0f / 1024.0f, 0.1f, 100.0f);
+
         shader.setMat4("model", model);
+        shader.setMat4("view", view);
+        shader.setMat4("projection", projection);
 
-        float red = fabs(sin(glfwGetTime()));
-        float green = fabs(cos(glfwGetTime()));
-        float blue = fabs(sin(glfwGetTime()));
+        glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
+        shader.setMat3("normalMatrix", normalMatrix);
 
-        shader.setVec4("ourColor", red, green, blue, 1.0f);
+        shader.setVec3("material.ambient", 0.15f, 0.3f, 0.8f);
+        shader.setVec3("material.diffuse", 0.2f, 0.4f, 1.0f);
+        shader.setVec3("material.specular", 0.7f, 0.8f, 1.0f);
+        shader.setFloat("material.shininess", 64.0f);
 
-        float offset = sin(glfwGetTime()) * 0.5f;
-        shader.setFloat("offsetX", offset);
+        shader.setVec3("light.position", lightPos.x, lightPos.y, lightPos.z);
+        shader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
+        shader.setVec3("light.diffuse", 0.8f, 0.8f, 0.8f);
+        shader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+
+        shader.setVec3("viewPos", cameraPos.x, cameraPos.y, cameraPos.z);
 
         ourModel.Draw();
 
         glfwSwapBuffers(Okno);
         glfwPollEvents();
     }
-
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-    glDeleteBuffers(1, &EBO);
 
     glfwTerminate();
     return 0;
